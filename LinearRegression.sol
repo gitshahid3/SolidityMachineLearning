@@ -1,100 +1,82 @@
-pragma solidity ^0.8.0;
+pragma solidity >=0.8.13;
 
-contract LinearRegression {
+import { UD60x18, ud } from "@prb/math/UD60x18.sol";
+
+struct Parameters {
+  uint public slope;
+  uint public intercept;
+  uint public n;
+  uint public sum_x;
+  uint public sum_y;
+  uint public sum_xy;
+  uint public sum_xx;
+}
     
-    struct Parameters {
-      uint public slope;
-      uint public intercept;
-      uint public n;
-      uint public sum_x;
-      uint public sum_y;
-      uint public sum_xy;
-      uint public sum_xx;
-    }
+// trains on data
+function fit(uint[] memory x, uint[] memory y, Parameters memory parameters) pure returns (Parameters memory) {
+  require(x.length == y.length, "Input array lengths must be equal");
+        
+  uint new_n = x.length;
+        
+  UD60x18 sum_x = ud(parameters.sum_x);
+  UD60x18 sum_y = ud(parameters.sum_y);
+  UD60x18 sum_xy = ud(parameters.sum_xy);
+  UD60x18 sum_xx = ud(parameters.sum_xx);
+  UD60x18 n = ud(parameters.n);
+        
+  for (uint i = 0; i < new_n; i++) {
+    UD60x18 xi = ud(x[i]) ;
+    UD60x18 yi = ud(y[i]);
     
-    // initializes the training data
-    function fit(uint[] memory x, uint[] memory y) internal pure returns (Parameters memory) {
-        require(x.length == y.length, "Input array lengths must be equal");
-        require(x.length >= 2, "Input array lengths must be at least 2");
+    sum_x = sum_x.add(xi);
+    sum_y = sum_y.add(yi);
+    sum_xy = sum_xy.add(xi.mul(yi));
+    sum_xx = sum_xx.add(xi.mul(xi));
+  }
         
-        n = x.length;
+  n = n.add(ud(new_n));
+  uint slope = (n.mul(sum_xy).sub(sum_x.mul(sum_y)).div(n.mul(sum_xx).sub(sum_x.mul(sum_x)).intoUint256();
+  uint intercept = (sum_y.sub(slope.mul(sum_x))).div(n).intoUint256();
         
-        uint sum_x = 0;
-        uint sum_y = 0;
-        uint sum_xy = 0;
-        uint sum_xx = 0;
-        
-        for (uint i = 0; i < n; i++) {
-            sum_x += x[i];
-            sum_y += y[i];
-            sum_xy += x[i] * y[i];
-            sum_xx += x[i] * x[i];
-        }
-        
-        uint slope = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x);
-        uint intercept = (sum_y - slope * sum_x) / n;
-        return Parameters(slope, intercept, n, sum_x, sum_y, sum_xy, sum_xx);
-    }
+  return Parameters(slope, intercept, n.intoUint256(), sum_x.intoUint256(), sum_y.intoUint256(), sum_xy.intoUint256(), sum_xx.intoUint256());
+}
     
-    // train existing data
-    function train(uint[] memory x, uint[] memory y, Parameters memory parameters) internal pure returns (Parameters memory) {
-        require(x.length == y.length, "Input array lengths must be equal");
+//calculates mean squared error
+function meanSquaredError(uint[] memory x, uint[] memory y, Parameters memory parameters) pure returns (uint) {
+  require(x.length == y.length, "Input array lengths must be equal");
+  require(parameters.slope != 0, "Model must be trained first");
         
-        uint new_n = x.length;
+  UD60x18 sum_error_squared = ud(0);
+  for (uint i = 0; i < x.length; i++) {
+    UD60x18 y_pred = ud(predict(x[i], parameters));
+    UD60x18 error = ud(y[i]).sub(y_pred);
+    sum_error_squared = sum_error_squared.add(error.mul(error));
+  }
         
-        sum_x = Parameters.sum_x
-        sum_y = Parameters.sum_y
-        sum_xy = Parameters.sum_xy
-        sum_xx = Parameters.sum_xx
-        n = Parameters.n
-        
-        for (uint i = 0; i < new_n; i++) {
-            sum_x += x[i];
-            sum_y += y[i];
-            sum_xy += x[i] * y[i];
-            sum_xx += x[i] * x[i];
-        }
-        
-        n += new_n;
-        slope = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x);
-        intercept = (sum_y - slope * sum_x) / n;
-        
-      return Parameters(slope, intercept, n, sum_x, sum_y, sum_xy, sum_xx);
-    }
+  return sum_error_squared.div(ud(x.length)).intoUint256();
+}
     
-    //calculates mean squared error
-    function meanSquaredError(uint[] memory x, uint[] memory y, Parameters memory parameters) internal view returns (uint) {
-        require(x.length == y.length, "Input array lengths must be equal");
-        require(parameters.slope != 0, "Model must be trained first");
+// calculates mean absolute error
+function meanAbsoluteError(uint[] memory x, uint[] memory y, Parameters memory parameters) pure returns (uint) {
+  require(x.length == y.length, "Input array lengths must be equal");
+  require(parameters.slope != 0, "Model must be trained first");
         
-        uint sum_error_squared = 0;
-        for (uint i = 0; i < x.length; i++) {
-            uint y_pred = predict(x[i], parameters);
-            uint error = y[i] - y_pred;
-            sum_error_squared += error * error;
-        }
+  UD60x18 absolute_error = ud(0);
         
-        return sum_error_squared / x.length;
-    }
-    
-    // calculates mean absolute error
-    function meanAbsoluteError(uint[] memory x, uint[] memory y, Parameters memory parameters) internal pure returns (uint) {
-      require(x.length == y.length, "Input array lengths must be equal");
-      require(parameters.slope != 0, "Model must be trained first");
+  for (uint i = 0; i < x.length; i++) {
+    UD60x18 y_pred = ud(predict(x[i], parameters));
+    absolute_error = absolute_error.add(abs(ud(y[i]).sub(y_pred)));
+  }
         
-      uint absolute_error = 0;
-        
-      for (uint i = 0; i < x.length; i++) {
-          uint y_pred = predict(x[i], parameters)
-          absolute_error += abs(y[i] - y_pred);
-      }
-        
-      return absolute_error / x.length;
-    }
+  return absolute_error.div(x.length).intoUint256();
+}
 
     
-    // predicts the data
-    function predict(uint x, Parameters memory parameters) internal view returns (uint) {
-        return parameters.slope * x + parameters.intercept;
-    }
+// predicts the data
+function predict(uint xi, Parameters memory parameters) pure returns (uint) {
+  UD60x18 slope = parameters.slope;
+  UD60x18 x = xi;
+  UD60x18 intercept = parameters.intercept;
+  
+  return slope.mul(x).add(intercept).intoUint256();
 }

@@ -25,7 +25,7 @@ function fit(uint[] memory x, uint[] memory y, Parameters memory parameters) pur
   UD60x18 n = ud(parameters.n);
         
   for (uint i = 0; i < new_n; i++) {
-    UD60x18 xi = ud(x[i]) ;
+    UD60x18 xi = ud(x[i]);
     UD60x18 yi = ud(y[i]);
     
     sum_x = sum_x.add(xi);
